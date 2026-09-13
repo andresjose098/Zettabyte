@@ -2,11 +2,11 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "../generated/prisma/client";
 
 const adapter = new PrismaMariaDb({
-  host: "127.0.0.1",
-  port: 3306,
-  user: "root",
-  password: "",
-  database: "zettabyte_db",
+  host: process.env.DB_HOST || "127.0.0.1",
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "zettabyte_db",
   connectionLimit: 5,
 });
 

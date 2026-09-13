@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { put } from "@vercel/blob";
 import { verificarAdmin } from "@/lib/auth";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const admin = await verificarAdmin();
@@ -38,39 +40,30 @@ export async function POST(request: Request) {
       );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const nombreSeguro = file.name
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9.\-_]/g, "");
 
-    const extension = path.extname(file.name).toLowerCase();
+    const nombreArchivo = `productos/${Date.now()}-${nombreSeguro}`;
 
-    const nombreArchivo = `${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}${extension}`;
-
-    const carpetaUploads = path.join(
-      process.cwd(),
-      "public",
-      "uploads"
+    const blob = await put(
+      nombreArchivo,
+      file,
+      {
+        access: "public",
+        addRandomSuffix: true,
+      }
     );
-
-    await mkdir(carpetaUploads, {
-      recursive: true,
-    });
-
-    const rutaCompleta = path.join(
-      carpetaUploads,
-      nombreArchivo
-    );
-
-    await writeFile(rutaCompleta, buffer);
-
-    console.log("Imagen guardada en:", rutaCompleta);
 
     return NextResponse.json({
-      url: `/uploads/${nombreArchivo}`,
+      url: blob.url,
     });
   } catch (error) {
-    console.error("ERROR AL SUBIR IMAGEN:", error);
+    console.error(
+      "ERROR AL SUBIR IMAGEN A VERCEL BLOB:",
+      error
+    );
 
     return NextResponse.json(
       {

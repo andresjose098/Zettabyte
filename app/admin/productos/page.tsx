@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { upload } from "@vercel/blob/client";
 
 type Producto = {
   id: number;
@@ -109,37 +110,79 @@ export default function AdminProductos() {
   // SUBIR IMAGEN
   // =========================
 
-  const subirImagen = async (archivo: File) => {
-    setMensaje("");
-    setSubiendoImagen(true);
+ const subirImagen = async (
+  archivo: File
+) => {
+  setMensaje("");
 
-    try {
-      const formData = new FormData();
-      formData.append("file", archivo);
+  if (!archivo.type.startsWith("image/")) {
+    setMensaje(
+      "Selecciona un archivo de imagen válido."
+    );
+    return;
+  }
 
-      const respuesta = await fetch("/api/admin/upload", {
-        method: "POST",
-        body: formData,
-      });
+  if (archivo.size > 15 * 1024 * 1024) {
+    setMensaje(
+      "La imagen no puede superar los 15 MB."
+    );
+    return;
+  }
 
-      const datos = await leerRespuesta(respuesta);
+  setSubiendoImagen(true);
 
-      if (!respuesta.ok) {
-        setMensaje(
-          datos.error || "No se pudo subir la imagen"
-        );
-        return;
+  try {
+    const nombreSeguro = archivo.name
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(
+        /[^a-z0-9.\-_]/g,
+        ""
+      );
+
+    const blob = await upload(
+      `productos/${Date.now()}-${nombreSeguro}`,
+      archivo,
+      {
+        access: "public",
+
+        handleUploadUrl:
+          "/api/admin/upload-client",
+
+        multipart: true,
+
+        onUploadProgress: ({
+          percentage,
+        }) => {
+          setMensaje(
+            `Subiendo imagen... ${Math.round(
+              percentage
+            )}%`
+          );
+        },
       }
+    );
 
-      setImage(datos.url);
-      setMensaje("Imagen subida correctamente ✅");
-    } catch (error) {
-      console.error(error);
-      setMensaje("No se pudo subir la imagen");
-    } finally {
-      setSubiendoImagen(false);
-    }
-  };
+    setImage(blob.url);
+
+    setMensaje(
+      "Imagen subida correctamente ✅"
+    );
+  } catch (error) {
+    console.error(
+      "ERROR SUBIENDO IMAGEN:",
+      error
+    );
+
+    setMensaje(
+      error instanceof Error
+        ? `No se pudo subir la imagen: ${error.message}`
+        : "No se pudo subir la imagen"
+    );
+  } finally {
+    setSubiendoImagen(false);
+  }
+};
 
   // =========================
   // LIMPIAR FORMULARIO
@@ -495,39 +538,41 @@ export default function AdminProductos() {
                   Imagen del producto
                 </label>
 
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const archivo =
-                      e.target.files?.[0];
+               <input
+  type="file"
+  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+  onChange={async (e) => {
+    const archivo = e.target.files?.[0];
 
-                    if (!archivo) return;
+    if (!archivo) return;
 
-                    await subirImagen(archivo);
-                  }}
-                  className="w-full rounded-xl border border-white/10 bg-[#0a0f1c] px-4 py-3 text-gray-300"
-                />
+    await subirImagen(archivo);
 
-                {subiendoImagen && (
-                  <p className="mt-2 text-sm text-cyan-400">
-                    Subiendo imagen...
-                  </p>
-                )}
+    e.target.value = "";
+  }}
+  disabled={subiendoImagen}
+  className="w-full rounded-xl border border-white/10 bg-[#0a0f1c] px-4 py-3 text-sm text-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+/>
 
-                {image && (
-                  <div className="mt-4">
-                    <p className="mb-2 text-sm text-gray-400">
-                      Vista previa
-                    </p>
+{subiendoImagen && (
+  <p className="mt-2 text-sm text-cyan-400">
+    Subiendo imagen...
+  </p>
+)}
 
-                    <img
-                      src={image}
-                      alt="Vista previa del producto"
-                      className="h-48 w-full rounded-xl bg-white object-contain p-3"
-                    />
-                  </div>
-                )}
+{image && (
+  <div className="mt-4">
+    <p className="mb-2 text-sm text-gray-400">
+      Vista previa
+    </p>
+
+    <img
+      src={image}
+      alt="Vista previa del producto"
+      className="h-48 w-full rounded-xl bg-white object-contain p-3"
+    />
+  </div>
+)}
               </div>
 
               {/* DESTACADO */}

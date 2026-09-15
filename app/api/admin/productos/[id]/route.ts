@@ -5,20 +5,26 @@ import { verificarAdmin } from "@/lib/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/* =========================================================
+   ELIMINAR PRODUCTO
+========================================================= */
+
 export async function DELETE(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const admin = await verificarAdmin();
-
-  if (!admin) {
-    return NextResponse.json(
-      { error: "No autorizado" },
-      { status: 401 }
-    );
-  }
-
   try {
+    // Verificar que el usuario sea administrador
+    const admin = await verificarAdmin();
+
+    if (!admin) {
+      return NextResponse.json(
+        { error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
+    // Obtener ID del producto
     const { id } = await context.params;
     const productId = Number(id);
 
@@ -33,6 +39,7 @@ export async function DELETE(
       );
     }
 
+    // Comprobar que el producto exista
     const producto = await prisma.product.findUnique({
       where: {
         id: productId,
@@ -40,6 +47,7 @@ export async function DELETE(
       select: {
         id: true,
         name: true,
+        active: true,
       },
     });
 
@@ -50,15 +58,22 @@ export async function DELETE(
       );
     }
 
-    const pedidosRelacionados =
-      await prisma.orderItem.count({
-        where: {
-          productId,
-        },
-      });
+    // Revisar si el producto pertenece a algún pedido
+    const pedidosRelacionados = await prisma.orderItem.count({
+      where: {
+        productId: productId,
+      },
+    });
 
-    // Si el producto está relacionado con pedidos,
-    // no lo borramos para conservar el historial.
+    /*
+      IMPORTANTE:
+
+      Si el producto ya fue comprado alguna vez,
+      NO se elimina físicamente de Railway.
+
+      Se coloca active = false para conservar
+      correctamente el historial de pedidos.
+    */
     if (pedidosRelacionados > 0) {
       await prisma.product.update({
         where: {
@@ -66,6 +81,8 @@ export async function DELETE(
         },
         data: {
           active: false,
+          featured: false,
+          offer: false,
         },
       });
 
@@ -74,11 +91,15 @@ export async function DELETE(
         deleted: false,
         deactivated: true,
         message:
-          "El producto tenía pedidos asociados y fue retirado de la tienda.",
+          "Producto retirado correctamente de la tienda.",
       });
     }
 
-    // Si nunca estuvo en un pedido, sí puede borrarse.
+    /*
+      Si el producto nunca ha sido utilizado
+      en un pedido, podemos eliminarlo
+      definitivamente de Railway.
+    */
     await prisma.product.delete({
       where: {
         id: productId,
@@ -92,34 +113,40 @@ export async function DELETE(
       message: "Producto eliminado correctamente.",
     });
   } catch (error) {
-    console.error(
-      "ERROR ELIMINANDO PRODUCTO:",
-      error
-    );
+    console.error("ERROR ELIMINANDO PRODUCTO:", error);
 
     return NextResponse.json(
       {
-        error: "No se pudo eliminar el producto",
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo eliminar el producto",
       },
       { status: 500 }
     );
   }
 }
 
+/* =========================================================
+   ACTUALIZAR PRODUCTO
+========================================================= */
+
 export async function PUT(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const admin = await verificarAdmin();
-
-  if (!admin) {
-    return NextResponse.json(
-      { error: "No autorizado" },
-      { status: 401 }
-    );
-  }
-
   try {
+    // Verificar administrador
+    const admin = await verificarAdmin();
+
+    if (!admin) {
+      return NextResponse.json(
+        { error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
+    // Obtener ID
     const { id } = await context.params;
     const productId = Number(id);
 
@@ -129,11 +156,30 @@ export async function PUT(
       productId <= 0
     ) {
       return NextResponse.json(
-        { error: "ID inválido" },
+        { error: "ID de producto inválido" },
         { status: 400 }
       );
     }
 
+    // Comprobar que el producto exista
+    const productoExistente = await prisma.product.findUnique({
+      where: {
+        id: productId,
+      },
+      select: {
+        id: true,
+        image: true,
+      },
+    });
+
+    if (!productoExistente) {
+      return NextResponse.json(
+        { error: "El producto no existe" },
+        { status: 404 }
+      );
+    }
+
+    // Obtener información enviada por el administrador
     const body = await request.json();
 
     const {
@@ -147,63 +193,144 @@ export async function PUT(
       offer,
     } = body;
 
-    if (!name || !price || !category) {
+    /* =====================================================
+       VALIDACIONES
+    ===================================================== */
+
+    if (
+      typeof name !== "string" ||
+      !name.trim()
+    ) {
       return NextResponse.json(
-        {
-          error:
-            "Nombre, precio y categoría son obligatorios",
-        },
+        { error: "El nombre es obligatorio" },
         { status: 400 }
       );
     }
 
-    const categoria =
-      await prisma.category.upsert({
-        where: {
-          name: category.trim(),
-        },
-        update: {},
-        create: {
-          name: category.trim(),
-        },
-      });
+    if (
+      typeof category !== "string" ||
+      !category.trim()
+    ) {
+      return NextResponse.json(
+        { error: "La categoría es obligatoria" },
+        { status: 400 }
+      );
+    }
 
-    const productoActualizado =
-      await prisma.product.update({
-        where: {
-          id: productId,
-        },
+    const precioNumerico = Number(price);
 
-        data: {
-          name: name.trim(),
-          description:
-            description?.trim() || null,
-          price: Number(price),
-          image: image?.trim() || null,
-          stock: Number(stock) || 0,
-          featured: Boolean(featured),
-          offer: Boolean(offer),
-          categoryId: categoria.id,
-        },
+    if (
+      !Number.isFinite(precioNumerico) ||
+      precioNumerico < 0
+    ) {
+      return NextResponse.json(
+        { error: "El precio no es válido" },
+        { status: 400 }
+      );
+    }
 
-        include: {
-          category: true,
-        },
-      });
+    const stockNumerico = Number(stock);
 
-    return NextResponse.json(
-      productoActualizado
-    );
+    if (
+      !Number.isFinite(stockNumerico) ||
+      stockNumerico < 0
+    ) {
+      return NextResponse.json(
+        { error: "El stock no es válido" },
+        { status: 400 }
+      );
+    }
+
+    /* =====================================================
+       CREAR O BUSCAR CATEGORÍA
+    ===================================================== */
+
+    const nombreCategoria = category.trim();
+
+    const categoria = await prisma.category.upsert({
+      where: {
+        name: nombreCategoria,
+      },
+      update: {},
+      create: {
+        name: nombreCategoria,
+      },
+    });
+
+    /* =====================================================
+       CONSERVAR LA IMAGEN
+    =====================================================
+
+       Si el frontend envía una nueva URL de Vercel Blob,
+       se guarda.
+
+       Si por algún motivo no envía "image",
+       conservamos la imagen que ya tenía el producto.
+    */
+
+    let imagenFinal = productoExistente.image;
+
+    if (typeof image === "string") {
+      const imagenLimpia = image.trim();
+
+      if (imagenLimpia) {
+        imagenFinal = imagenLimpia;
+      }
+    }
+
+    /* =====================================================
+       ACTUALIZAR PRODUCTO EN RAILWAY
+    ===================================================== */
+
+    const productoActualizado = await prisma.product.update({
+      where: {
+        id: productId,
+      },
+
+      data: {
+        name: name.trim(),
+
+        description:
+          typeof description === "string" &&
+          description.trim()
+            ? description.trim()
+            : null,
+
+        price: Math.round(precioNumerico),
+
+        image: imagenFinal,
+
+        stock: Math.max(
+          0,
+          Math.floor(stockNumerico)
+        ),
+
+        featured: featured === true,
+
+        offer: offer === true,
+
+        categoryId: categoria.id,
+      },
+
+      include: {
+        category: true,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Producto actualizado correctamente.",
+      product: productoActualizado,
+    });
   } catch (error) {
-    console.error(
-      "ERROR ACTUALIZANDO PRODUCTO:",
-      error
-    );
+    console.error("ERROR ACTUALIZANDO PRODUCTO:", error);
 
     return NextResponse.json(
       {
         error:
-          "No se pudo actualizar el producto",
+          error instanceof Error
+            ? error.message
+            : "No se pudo actualizar el producto",
       },
       { status: 500 }
     );

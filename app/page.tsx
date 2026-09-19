@@ -358,15 +358,12 @@ export default function Home() {
         )}\n\n` +
         `¿Me pueden confirmar disponibilidad?`;
 
-      const numero =
-        "573172934618";
+     const numero = "573172934618";
 
-      window.open(
-        `https://wa.me/${numero}?text=${encodeURIComponent(
-          mensaje
-        )}`,
-        "_blank"
-      );
+const urlWhatsApp =
+  `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+
+window.location.href = urlWhatsApp;
     } catch (error) {
       console.error(error);
 

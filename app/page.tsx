@@ -459,15 +459,19 @@ window.location.href = urlWhatsApp;
 
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#070b14]/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-          <a
-            href="#"
-            className="flex-shrink-0 text-xl font-bold sm:text-2xl"
-          >
-            Zetta
-            <span className="text-cyan-400">
-              Byte
-            </span>
-          </a>
+                <a
+                href="#"
+                className="flex flex-shrink-0 items-center"
+                  >
+                <Image
+                src="/zettabyte.jpeg"
+                alt="ZettaByte"
+                width={260}
+                height={90}
+                priority
+                className="h-auto w-[150px] object-contain sm:w-[190px]"
+                />
+                </a>               
 
           <nav className="hidden items-center gap-6 md:flex lg:gap-8">
             <a
@@ -611,16 +615,17 @@ window.location.href = urlWhatsApp;
         </div>
 
         <div className="flex min-w-0 justify-center">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 text-center sm:p-12">
-            <p className="text-6xl sm:text-8xl">
-              💻
-            </p>
-
-            <h2 className="mt-8 text-xl font-bold sm:text-2xl">
-              Tecnología que inspira
-            </h2>
-          </div>
-        </div>
+  <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-black p-4 sm:p-6">
+    <Image
+      src="/zettabyte.jpeg"
+      alt="ZettaByte - Venta de partes para computadores y celulares"
+      width={1600}
+      height={570}
+      priority
+      className="h-auto w-full object-contain"
+    />
+  </div>
+</div>
       </section>
 
       {/* ========================================= */}

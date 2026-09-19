@@ -94,7 +94,16 @@ export default async function PedidoDetallePage({
             </h1>
 
             <p className="mt-2 text-gray-400">
-              {pedido.createdAt.toLocaleString("es-CO")}
+                            {pedido.createdAt.toLocaleString("es-CO", {
+                            timeZone: "America/Bogota",
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                            second: "2-digit",
+                            hour12: true,
+                })}
             </p>
           </div>
 

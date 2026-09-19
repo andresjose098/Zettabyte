@@ -5,6 +5,8 @@ import { verificarAdmin } from "@/lib/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const MAX_IMAGENES = 5;
+
 /* =========================================================
    ELIMINAR PRODUCTO
 ========================================================= */
@@ -14,7 +16,6 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verificar que el usuario sea administrador
     const admin = await verificarAdmin();
 
     if (!admin) {
@@ -24,7 +25,6 @@ export async function DELETE(
       );
     }
 
-    // Obtener ID del producto
     const { id } = await context.params;
     const productId = Number(id);
 
@@ -39,7 +39,6 @@ export async function DELETE(
       );
     }
 
-    // Comprobar que el producto exista
     const producto = await prisma.product.findUnique({
       where: {
         id: productId,
@@ -58,21 +57,16 @@ export async function DELETE(
       );
     }
 
-    // Revisar si el producto pertenece a algún pedido
     const pedidosRelacionados = await prisma.orderItem.count({
       where: {
-        productId: productId,
+        productId,
       },
     });
 
     /*
-      IMPORTANTE:
-
-      Si el producto ya fue comprado alguna vez,
-      NO se elimina físicamente de Railway.
-
-      Se coloca active = false para conservar
-      correctamente el historial de pedidos.
+      Si el producto pertenece a un pedido,
+      no lo eliminamos físicamente para conservar
+      correctamente el historial.
     */
     if (pedidosRelacionados > 0) {
       await prisma.product.update({
@@ -90,15 +84,16 @@ export async function DELETE(
         success: true,
         deleted: false,
         deactivated: true,
-        message:
-          "Producto retirado correctamente de la tienda.",
+        message: "Producto retirado correctamente de la tienda.",
       });
     }
 
     /*
-      Si el producto nunca ha sido utilizado
-      en un pedido, podemos eliminarlo
-      definitivamente de Railway.
+      Si nunca ha sido utilizado en un pedido,
+      se elimina definitivamente.
+
+      Las imágenes relacionadas en ProductImage
+      se eliminan automáticamente por onDelete: Cascade.
     */
     await prisma.product.delete({
       where: {
@@ -136,7 +131,6 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verificar administrador
     const admin = await verificarAdmin();
 
     if (!admin) {
@@ -146,7 +140,6 @@ export async function PUT(
       );
     }
 
-    // Obtener ID
     const { id } = await context.params;
     const productId = Number(id);
 
@@ -161,7 +154,10 @@ export async function PUT(
       );
     }
 
-    // Comprobar que el producto exista
+    /* =====================================================
+       BUSCAR PRODUCTO ACTUAL
+    ===================================================== */
+
     const productoExistente = await prisma.product.findUnique({
       where: {
         id: productId,
@@ -169,6 +165,11 @@ export async function PUT(
       select: {
         id: true,
         image: true,
+        images: {
+          orderBy: {
+            position: "asc",
+          },
+        },
       },
     });
 
@@ -179,7 +180,6 @@ export async function PUT(
       );
     }
 
-    // Obtener información enviada por el administrador
     const body = await request.json();
 
     const {
@@ -187,6 +187,7 @@ export async function PUT(
       description,
       price,
       image,
+      images,
       stock,
       category,
       featured,
@@ -197,20 +198,14 @@ export async function PUT(
        VALIDACIONES
     ===================================================== */
 
-    if (
-      typeof name !== "string" ||
-      !name.trim()
-    ) {
+    if (typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
         { error: "El nombre es obligatorio" },
         { status: 400 }
       );
     }
 
-    if (
-      typeof category !== "string" ||
-      !category.trim()
-    ) {
+    if (typeof category !== "string" || !category.trim()) {
       return NextResponse.json(
         { error: "La categoría es obligatoria" },
         { status: 400 }
@@ -242,6 +237,75 @@ export async function PUT(
     }
 
     /* =====================================================
+       PROCESAR IMÁGENES
+    ===================================================== */
+
+    let imagenesFinales: string[];
+
+    if (Array.isArray(images)) {
+      imagenesFinales = images
+        .filter(
+          (url): url is string =>
+            typeof url === "string" &&
+            url.trim().length > 0
+        )
+        .map((url) => url.trim());
+
+      // Evitar URLs duplicadas
+      imagenesFinales = [...new Set(imagenesFinales)];
+
+      if (imagenesFinales.length > MAX_IMAGENES) {
+        return NextResponse.json(
+          {
+            error: `Solo puedes guardar hasta ${MAX_IMAGENES} imágenes por producto.`,
+          },
+          { status: 400 }
+        );
+      }
+    } else {
+      /*
+        Compatibilidad con productos anteriores.
+
+        Si el frontend todavía no envía "images",
+        conservamos las imágenes actuales.
+      */
+      imagenesFinales = productoExistente.images.map(
+        (img) => img.url
+      );
+
+      /*
+        Si el producto es antiguo y solamente tiene
+        Product.image, lo conservamos.
+      */
+      if (
+        imagenesFinales.length === 0 &&
+        productoExistente.image
+      ) {
+        imagenesFinales = [productoExistente.image];
+      }
+
+      /*
+        Compatibilidad con el frontend antiguo que
+        todavía envía solamente "image".
+      */
+      if (
+        typeof image === "string" &&
+        image.trim() &&
+        !imagenesFinales.includes(image.trim())
+      ) {
+        imagenesFinales = [image.trim()];
+      }
+    }
+
+    /*
+      La primera imagen será siempre la principal.
+    */
+    const imagenPrincipal =
+      imagenesFinales.length > 0
+        ? imagenesFinales[0]
+        : null;
+
+    /* =====================================================
        CREAR O BUSCAR CATEGORÍA
     ===================================================== */
 
@@ -258,64 +322,85 @@ export async function PUT(
     });
 
     /* =====================================================
-       CONSERVAR LA IMAGEN
-    =====================================================
-
-       Si el frontend envía una nueva URL de Vercel Blob,
-       se guarda.
-
-       Si por algún motivo no envía "image",
-       conservamos la imagen que ya tenía el producto.
-    */
-
-    let imagenFinal = productoExistente.image;
-
-    if (typeof image === "string") {
-      const imagenLimpia = image.trim();
-
-      if (imagenLimpia) {
-        imagenFinal = imagenLimpia;
-      }
-    }
-
-    /* =====================================================
-       ACTUALIZAR PRODUCTO EN RAILWAY
+       ACTUALIZAR PRODUCTO + GALERÍA
     ===================================================== */
 
-    const productoActualizado = await prisma.product.update({
-      where: {
-        id: productId,
-      },
+    const productoActualizado = await prisma.$transaction(
+      async (tx) => {
+        /*
+          Primero actualizamos los datos generales.
+        */
+        await tx.product.update({
+          where: {
+            id: productId,
+          },
 
-      data: {
-        name: name.trim(),
+          data: {
+            name: name.trim(),
 
-        description:
-          typeof description === "string" &&
-          description.trim()
-            ? description.trim()
-            : null,
+            description:
+              typeof description === "string" &&
+              description.trim()
+                ? description.trim()
+                : null,
 
-        price: Math.round(precioNumerico),
+            price: Math.round(precioNumerico),
 
-        image: imagenFinal,
+            image: imagenPrincipal,
 
-        stock: Math.max(
-          0,
-          Math.floor(stockNumerico)
-        ),
+            stock: Math.max(
+              0,
+              Math.floor(stockNumerico)
+            ),
 
-        featured: featured === true,
+            featured: featured === true,
 
-        offer: offer === true,
+            offer: offer === true,
 
-        categoryId: categoria.id,
-      },
+            categoryId: categoria.id,
+          },
+        });
 
-      include: {
-        category: true,
-      },
-    });
+        /*
+          Reemplazamos la galería del producto.
+        */
+        await tx.productImage.deleteMany({
+          where: {
+            productId,
+          },
+        });
+
+        if (imagenesFinales.length > 0) {
+          await tx.productImage.createMany({
+            data: imagenesFinales.map((url, index) => ({
+              url,
+              position: index,
+              productId,
+            })),
+          });
+        }
+
+        /*
+          Devolvemos el producto actualizado
+          con categoría e imágenes.
+        */
+        return tx.product.findUnique({
+          where: {
+            id: productId,
+          },
+
+          include: {
+            category: true,
+
+            images: {
+              orderBy: {
+                position: "asc",
+              },
+            },
+          },
+        });
+      }
+    );
 
     return NextResponse.json({
       success: true,

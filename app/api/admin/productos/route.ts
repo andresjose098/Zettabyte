@@ -5,6 +5,8 @@ import { verificarAdmin } from "@/lib/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const MAX_IMAGENES = 5;
+
 /* =========================================================
    OBTENER PRODUCTOS ACTIVOS DEL ADMINISTRADOR
 ========================================================= */
@@ -21,15 +23,18 @@ export async function GET() {
     }
 
     const productos = await prisma.product.findMany({
-      // IMPORTANTE:
-      // Los productos eliminados/desactivados
-      // no deben volver a aparecer en el administrador.
       where: {
         active: true,
       },
 
       include: {
         category: true,
+
+        images: {
+          orderBy: {
+            position: "asc",
+          },
+        },
       },
 
       orderBy: {
@@ -77,6 +82,7 @@ export async function POST(request: Request) {
       description,
       price,
       image,
+      images,
       stock,
       category,
       featured,
@@ -160,29 +166,57 @@ export async function POST(request: Request) {
     }
 
     /* =====================================================
-       PREPARAR IMAGEN
+       PREPARAR IMÁGENES
     ===================================================== */
 
-    let imagenFinal: string | null = null;
+    let imagenesFinales: string[] = [];
 
-    if (
-      typeof image === "string" &&
-      image.trim()
-    ) {
-      imagenFinal = image.trim();
+    if (Array.isArray(images)) {
+      imagenesFinales = images
+        .filter(
+          (url): url is string =>
+            typeof url === "string" &&
+            url.trim().length > 0
+        )
+        .map((url) => url.trim());
+
+      // Eliminar URLs repetidas.
+      imagenesFinales = [...new Set(imagenesFinales)];
     }
 
     /*
-      En producción imagenFinal debería contener
-      una URL de Vercel Blob parecida a:
+      Compatibilidad con el formulario anterior.
 
-      https://xxxxx.public.blob.vercel-storage.com/imagen.webp
+      Si todavía llega solamente "image",
+      también podemos crear el producto normalmente.
     */
+    if (
+      imagenesFinales.length === 0 &&
+      typeof image === "string" &&
+      image.trim()
+    ) {
+      imagenesFinales = [image.trim()];
+    }
 
-    console.log(
-      "URL DE IMAGEN RECIBIDA:",
-      imagenFinal
-    );
+    if (imagenesFinales.length > MAX_IMAGENES) {
+      return NextResponse.json(
+        {
+          error: `Solo puedes guardar hasta ${MAX_IMAGENES} imágenes por producto.`,
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /*
+      La primera imagen de la galería
+      será la imagen principal del producto.
+    */
+    const imagenPrincipal =
+      imagenesFinales.length > 0
+        ? imagenesFinales[0]
+        : null;
 
     /* =====================================================
        CREAR O ENCONTRAR CATEGORÍA
@@ -203,7 +237,7 @@ export async function POST(request: Request) {
     });
 
     /* =====================================================
-       CREAR PRODUCTO EN RAILWAY
+       CREAR PRODUCTO + IMÁGENES
     ===================================================== */
 
     const producto = await prisma.product.create({
@@ -218,7 +252,11 @@ export async function POST(request: Request) {
 
         price: Math.round(precioNumerico),
 
-        image: imagenFinal,
+        /*
+          Seguimos guardando la primera imagen aquí
+          para mantener compatibilidad con la tienda.
+        */
+        image: imagenPrincipal,
 
         stock: Math.max(
           0,
@@ -229,14 +267,32 @@ export async function POST(request: Request) {
 
         offer: offer === true,
 
-        // Siempre crear el producto activo.
         active: true,
 
         categoryId: categoria.id,
+
+        /*
+          Aquí guardamos la galería completa
+          en ProductImage.
+        */
+        images: {
+          create: imagenesFinales.map(
+            (url, index) => ({
+              url,
+              position: index,
+            })
+          ),
+        },
       },
 
       include: {
         category: true,
+
+        images: {
+          orderBy: {
+            position: "asc",
+          },
+        },
       },
     });
 
@@ -244,7 +300,8 @@ export async function POST(request: Request) {
       "PRODUCTO CREADO:",
       producto.id,
       producto.name,
-      producto.image
+      producto.image,
+      `(${producto.images.length} imágenes)`
     );
 
     return NextResponse.json(

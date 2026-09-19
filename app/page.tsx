@@ -9,16 +9,23 @@ type Producto = {
   description: string | null;
   price: number;
   image: string | null;
+
+  images: {
+    id: number;
+    url: string;
+    position: number;
+  }[];
+
   stock: number;
   featured: boolean;
   offer: boolean;
   active?: boolean;
+
   category: {
     id: number;
     name: string;
   };
 };
-
 type ItemCarrito = {
   producto: Producto;
   cantidad: number;
@@ -42,6 +49,10 @@ export default function Home() {
     useState("");
 
   const [busqueda, setBusqueda] = useState("");
+
+
+  const [imagenesSeleccionadas, setImagenesSeleccionadas] =
+    useState<Record<number, string>>({});
 
   // =========================================
   // CARGAR PRODUCTOS
@@ -868,42 +879,87 @@ window.location.href = urlWhatsApp;
                       key={producto.id}
                       className="flex min-w-0 w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-cyan-400/30 sm:p-5"
                     >
-                      {/* IMAGEN */}
+                    {/* IMÁGENES DEL PRODUCTO */}
 
-                      <div className="relative aspect-[4/3] w-full min-w-0 overflow-hidden rounded-xl bg-white">
-                        {producto.image ? (
-                          <Image
-                            src={
-                              producto.image
-                            }
-                            alt={
-                              producto.name
-                            }
-                            fill
-                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                            className="object-contain p-3"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-gray-500">
-                            Sin imagen
-                          </div>
-                        )}
+<div className="w-full">
+  <div className="relative aspect-[4/3] w-full min-w-0 overflow-hidden rounded-xl bg-white">
+    {(() => {
+      const imagenPrincipal =
+        imagenesSeleccionadas[producto.id] ||
+        producto.images?.[0]?.url ||
+        producto.image;
 
-                        {producto.offer && (
-                          <span className="absolute left-3 top-3 rounded-full bg-purple-600 px-3 py-1 text-xs font-bold text-white">
-                            Oferta
-                          </span>
-                        )}
+      return imagenPrincipal ? (
+        <Image
+          src={imagenPrincipal}
+          alt={producto.name}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+          className="object-contain p-3"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center text-gray-500">
+          Sin imagen
+        </div>
+      );
+    })()}
 
-                        {producto.stock ===
-                          0 && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                            <span className="rounded-full bg-red-500 px-4 py-2 text-sm font-bold text-white">
-                              Agotado
-                            </span>
-                          </div>
-                        )}
-                      </div>
+    {producto.offer && (
+      <span className="absolute left-3 top-3 rounded-full bg-purple-600 px-3 py-1 text-xs font-bold text-white">
+        Oferta
+      </span>
+    )}
+
+    {producto.stock === 0 && (
+      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+        <span className="rounded-full bg-red-500 px-4 py-2 text-sm font-bold text-white">
+          Agotado
+        </span>
+      </div>
+    )}
+  </div>
+
+  {producto.images && producto.images.length > 1 && (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {producto.images.map((imagen, indice) => {
+        const imagenActual =
+          imagenesSeleccionadas[producto.id] ||
+          producto.images[0]?.url ||
+          producto.image;
+
+        const seleccionada =
+          imagenActual === imagen.url;
+
+        return (
+          <button
+            key={imagen.id}
+            type="button"
+            onClick={() =>
+              setImagenesSeleccionadas((actual) => ({
+                ...actual,
+                [producto.id]: imagen.url,
+              }))
+            }
+            className={`relative h-16 w-16 overflow-hidden rounded-lg border bg-white transition ${
+              seleccionada
+                ? "border-cyan-400 ring-2 ring-cyan-400/30"
+                : "border-white/10 hover:border-cyan-400/50"
+            }`}
+            aria-label={`Ver imagen ${indice + 1} de ${producto.name}`}
+          >
+            <Image
+              src={imagen.url}
+              alt={`${producto.name} - imagen ${indice + 1}`}
+              fill
+              sizes="64px"
+              className="object-contain p-1"
+            />
+          </button>
+        );
+      })}
+    </div>
+  )}
+</div>
 
                       {/* INFORMACIÓN */}
 

@@ -55,6 +55,9 @@ export default function Home() {
 
     const productosPorPagina = 12;
 
+  const [paginaOfertas, setPaginaOfertas] = useState(1);
+  const ofertasPorPagina = 5;
+
 
   const [imagenesSeleccionadas, setImagenesSeleccionadas] =
     useState<Record<number, string>>({});
@@ -412,6 +415,34 @@ window.location.href = urlWhatsApp;
     productos.filter(
       (producto) => producto.offer
     );
+
+  const totalPaginasOfertas = Math.max(
+    1,
+    Math.ceil(productosOferta.length / ofertasPorPagina)
+  );
+
+  const paginaActualOfertas = Math.min(
+    paginaOfertas,
+    totalPaginasOfertas
+  );
+
+  const indiceInicialOfertas =
+    (paginaActualOfertas - 1) * ofertasPorPagina;
+
+  const productosOfertaPaginados = productosOferta.slice(
+    indiceInicialOfertas,
+    indiceInicialOfertas + ofertasPorPagina
+  );
+
+  const cambiarPaginaOfertas = (pagina: number) => {
+    setPaginaOfertas(pagina);
+    setTimeout(() => {
+      document.getElementById("ofertas")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 50);
+  };
 
   // =========================================
   // BUSCADOR
@@ -1127,7 +1158,7 @@ window.location.href = urlWhatsApp;
             </p>
           ) : (
             <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {productosOferta.map(
+              {productosOfertaPaginados.map(
                 (producto) => (
                   <div
                     key={producto.id}
@@ -1156,6 +1187,19 @@ window.location.href = urlWhatsApp;
                   </div>
                 )
               )}
+            </div>
+          )}
+
+          {productosOferta.length > 0 && totalPaginasOfertas > 1 && (
+            <div className="mt-8">
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button type="button" onClick={() => cambiarPaginaOfertas(paginaActualOfertas - 1)} disabled={paginaActualOfertas === 1} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">← Anterior</button>
+                {Array.from({ length: totalPaginasOfertas }, (_, index) => index + 1).map((numeroPagina) => (
+                  <button key={numeroPagina} type="button" onClick={() => cambiarPaginaOfertas(numeroPagina)} className={`rounded-lg border px-4 py-2 font-semibold transition ${numeroPagina === paginaActualOfertas ? "border-purple-400 bg-purple-500 text-white" : "border-white/10 bg-white/5 text-white hover:bg-white/10"}`}>{numeroPagina}</button>
+                ))}
+                <button type="button" onClick={() => cambiarPaginaOfertas(paginaActualOfertas + 1)} disabled={paginaActualOfertas === totalPaginasOfertas} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">Siguiente →</button>
+              </div>
+              <p className="mt-4 text-center text-sm text-gray-500">Página {paginaActualOfertas} de {totalPaginasOfertas}</p>
             </div>
           )}
         </div>

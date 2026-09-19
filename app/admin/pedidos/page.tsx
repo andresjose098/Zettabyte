@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { verificarAdmin } from "@/lib/auth";
+import EliminarPedidoButton from "./EliminarPedidoButton";
 
 export const dynamic = "force-dynamic";
 
@@ -419,18 +420,22 @@ export default async function PedidosPage({
 
                   </div>
 
-                  {/* VER PEDIDO */}
+                 {/* ACCIONES DEL PEDIDO */}
 
-                  <div className="mt-6">
+          <div className="mt-6 flex flex-wrap gap-3">
 
-                    <a
-                      href={`/admin/pedidos/${pedido.id}`}
-                      className="inline-block rounded-xl bg-cyan-500 px-5 py-3 font-bold text-black transition hover:bg-cyan-400"
-                    >
-                      Ver pedido
-                    </a>
+          <a
+          href={`/admin/pedidos/${pedido.id}`}
+          className="inline-block rounded-xl bg-cyan-500 px-5 py-3 font-bold text-black transition hover:bg-cyan-400"
+          >
+          Ver pedido
+          </a>
 
-                  </div>
+          <EliminarPedidoButton
+            pedidoId={pedido.id}
+            />
+
+          </div>
 
                 </article>
               ))}

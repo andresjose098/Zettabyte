@@ -273,3 +273,105 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: Props
+) {
+  const admin = await verificarAdmin();
+
+  if (!admin) {
+    return NextResponse.json(
+      { error: "No autorizado" },
+      { status: 401 }
+    );
+  }
+
+  try {
+    const { id } = await params;
+    const pedidoId = Number(id);
+
+    if (!Number.isInteger(pedidoId)) {
+      return NextResponse.json(
+        { error: "Pedido no válido" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const pedido = await tx.order.findUnique({
+        where: {
+          id: pedidoId,
+        },
+        include: {
+          items: true,
+        },
+      });
+
+      if (!pedido) {
+        throw new Error("PEDIDO_NO_EXISTE");
+      }
+
+      // Si estaba confirmado, el stock ya había sido
+      // descontado. Lo devolvemos antes de eliminar.
+      if (pedido.status === "CONFIRMED") {
+        for (const item of pedido.items) {
+          await tx.product.update({
+            where: {
+              id: item.productId,
+            },
+            data: {
+              stock: {
+                increment: item.quantity,
+              },
+            },
+          });
+        }
+      }
+
+      // Primero eliminamos los productos asociados
+      // al pedido para evitar problemas de relación.
+      await tx.orderItem.deleteMany({
+        where: {
+          orderId: pedidoId,
+        },
+      });
+
+      // Ahora eliminamos el pedido.
+      await tx.order.delete({
+        where: {
+          id: pedidoId,
+        },
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Pedido eliminado correctamente.",
+    });
+  } catch (error) {
+    console.error(
+      "ERROR ELIMINANDO PEDIDO:",
+      error
+    );
+
+    if (
+      error instanceof Error &&
+      error.message === "PEDIDO_NO_EXISTE"
+    ) {
+      return NextResponse.json(
+        {
+          error: "El pedido no existe.",
+        },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: "No se pudo eliminar el pedido.",
+      },
+      { status: 500 }
+    );
+  }
+}

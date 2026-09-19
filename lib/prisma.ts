@@ -1,13 +1,9 @@
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { PrismaClient } from "../generated/prisma/client";
 
-const adapter = new PrismaMariaDb({
-  host: process.env.DB_HOST || "127.0.0.1",
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "zettabyte_db",
-  connectionLimit: 5,
+const adapter = new PrismaLibSql({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
 });
 
 const globalForPrisma = globalThis as unknown as {

@@ -50,6 +50,11 @@ export default function Home() {
 
   const [busqueda, setBusqueda] = useState("");
 
+  const [paginaProductos, setPaginaProductos] =
+    useState(1);
+
+    const productosPorPagina = 12;
+
 
   const [imagenesSeleccionadas, setImagenesSeleccionadas] =
     useState<Record<number, string>>({});
@@ -462,6 +467,23 @@ window.location.href = urlWhatsApp;
       );
     });
 
+  // =========================================
+  // PAGINACIÓN DE PRODUCTOS
+  // =========================================
+
+  const totalPaginasProductos = Math.max(1, Math.ceil(productosFiltrados.length / productosPorPagina));
+  const paginaActualProductos = Math.min(paginaProductos, totalPaginasProductos);
+  const indiceInicial = (paginaActualProductos - 1) * productosPorPagina;
+  const indiceFinal = indiceInicial + productosPorPagina;
+  const productosPaginados = productosFiltrados.slice(indiceInicial, indiceFinal);
+
+  const cambiarPaginaProductos = (pagina: number) => {
+    setPaginaProductos(pagina);
+    setTimeout(() => {
+      document.getElementById("productos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+
   return (
     <main className="min-h-screen w-full overflow-x-hidden bg-[#070b14] text-white">
       {/* ========================================= */}
@@ -710,11 +732,10 @@ window.location.href = urlWhatsApp;
               <input
                 type="text"
                 value={busqueda}
-                onChange={(e) =>
-                  setBusqueda(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => {
+                  setBusqueda(e.target.value);
+                  setPaginaProductos(1);
+                }}
                 placeholder="Buscar portátil, mouse, computador..."
                 className="w-full min-w-0 rounded-2xl border border-white/10 bg-white/5 py-4 pl-14 pr-14 text-sm text-white outline-none transition placeholder:text-gray-500 focus:border-cyan-400 focus:bg-white/[0.07] sm:px-5 sm:pl-14 sm:pr-14 sm:text-base"
               />
@@ -745,9 +766,10 @@ window.location.href = urlWhatsApp;
               {busqueda && (
                 <button
                   type="button"
-                  onClick={() =>
-                    setBusqueda("")
-                  }
+                  onClick={() => {
+                    setBusqueda("");
+                    setPaginaProductos(1);
+                  }}
                   className="absolute right-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 transition hover:bg-white/10 hover:text-white"
                   aria-label="Limpiar búsqueda"
                 >
@@ -854,9 +876,10 @@ window.location.href = urlWhatsApp;
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setBusqueda("")
-                  }
+                  onClick={() => {
+                    setBusqueda("");
+                    setPaginaProductos(1);
+                  }}
                   className="mt-6 rounded-xl bg-cyan-500 px-6 py-3 font-bold text-black transition hover:bg-cyan-400"
                 >
                   Ver todos los productos
@@ -873,7 +896,7 @@ window.location.href = urlWhatsApp;
             productosFiltrados.length >
               0 && (
               <div className="mt-10 grid w-full grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {productosFiltrados.map(
+                {productosPaginados.map(
                   (producto) => (
                     <article
                       key={producto.id}
@@ -1067,6 +1090,19 @@ window.location.href = urlWhatsApp;
                 )}
               </div>
             )}
+
+          {!cargandoProductos && !errorProductos && productosFiltrados.length > 0 && totalPaginasProductos > 1 && (
+            <div className="mt-10">
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button type="button" onClick={() => cambiarPaginaProductos(paginaActualProductos - 1)} disabled={paginaActualProductos === 1} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">← Anterior</button>
+                {Array.from({ length: totalPaginasProductos }, (_, index) => index + 1).map((numeroPagina) => (
+                  <button key={numeroPagina} type="button" onClick={() => cambiarPaginaProductos(numeroPagina)} className={`rounded-lg border px-4 py-2 font-semibold transition ${numeroPagina === paginaActualProductos ? "border-cyan-500 bg-cyan-500 text-black" : "border-white/10 bg-white/5 text-white hover:bg-white/10"}`}>{numeroPagina}</button>
+                ))}
+                <button type="button" onClick={() => cambiarPaginaProductos(paginaActualProductos + 1)} disabled={paginaActualProductos === totalPaginasProductos} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">Siguiente →</button>
+              </div>
+              <p className="mt-4 text-center text-sm text-gray-500">Página {paginaActualProductos} de {totalPaginasProductos}</p>
+            </div>
+          )}
         </div>
       </section>
 

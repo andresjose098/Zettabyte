@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "ZettaByte",
     description:
-      "Tienda online de tecnología ZettaByte",
+     "Tecnología a tu alcance",
     images: ["/zettabyte.jpeg"],
   },
 };

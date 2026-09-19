@@ -497,7 +497,7 @@ window.location.href = urlWhatsApp;
                 className="flex flex-shrink-0 items-center"
                   >
                 <Image
-                src="/zettabyte.jpeg"
+                src="/Zettabyte_1.jpeg"
                 alt="ZettaByte"
                 width={260}
                 height={90}
@@ -648,9 +648,9 @@ window.location.href = urlWhatsApp;
         </div>
 
         <div className="flex min-w-0 justify-center">
-  <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-black p-4 sm:p-6">
+<div className="w-full max-w-xl overflow-hidden rounded-3xl p-4 sm:p-6">
     <Image
-      src="/zettabyte.jpeg"
+      src="/Zettabyte_1.jpeg"
       alt="ZettaByte - Venta de partes para computadores y celulares"
       width={1600}
       height={570}

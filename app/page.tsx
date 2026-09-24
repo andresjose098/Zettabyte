@@ -53,9 +53,11 @@ export default function Home() {
   const [paginaProductos, setPaginaProductos] =
     useState(1);
 
-    const productosPorPagina = 12;
+  const productosPorPagina = 12;
 
-  const [paginaOfertas, setPaginaOfertas] = useState(1);
+  const [paginaOfertas, setPaginaOfertas] =
+    useState(1);
+
   const ofertasPorPagina = 5;
 
 
@@ -429,13 +431,20 @@ window.location.href = urlWhatsApp;
   const indiceInicialOfertas =
     (paginaActualOfertas - 1) * ofertasPorPagina;
 
-  const productosOfertaPaginados = productosOferta.slice(
-    indiceInicialOfertas,
-    indiceInicialOfertas + ofertasPorPagina
-  );
+  const productosOfertaPaginados =
+    productosOferta.slice(
+      indiceInicialOfertas,
+      indiceInicialOfertas + ofertasPorPagina
+    );
 
   const cambiarPaginaOfertas = (pagina: number) => {
-    setPaginaOfertas(pagina);
+    const paginaSegura = Math.min(
+      Math.max(pagina, 1),
+      totalPaginasOfertas
+    );
+
+    setPaginaOfertas(paginaSegura);
+
     setTimeout(() => {
       document.getElementById("ofertas")?.scrollIntoView({
         behavior: "smooth",
@@ -509,9 +518,18 @@ window.location.href = urlWhatsApp;
   const productosPaginados = productosFiltrados.slice(indiceInicial, indiceFinal);
 
   const cambiarPaginaProductos = (pagina: number) => {
-    setPaginaProductos(pagina);
+    const paginaSegura = Math.min(
+      Math.max(pagina, 1),
+      totalPaginasProductos
+    );
+
+    setPaginaProductos(paginaSegura);
+
     setTimeout(() => {
-      document.getElementById("productos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("productos")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }, 50);
   };
 
@@ -660,6 +678,18 @@ window.location.href = urlWhatsApp;
             audio y mucho más en
             ZettaByte.
           </p>
+
+          <div className="mt-5 max-w-xl rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+            <p className="font-semibold text-cyan-400">
+              🚚 Servicio de domicilios en todo Jamundí, Valle del Cauca
+            </p>
+            <p className="mt-1 text-sm leading-6 text-gray-400">
+              Compra tus productos de tecnología de forma fácil y segura.
+              En ZettaByte llevamos tu pedido hasta tu ubicación en Jamundí.
+              Consulta disponibilidad y condiciones del domicilio al finalizar
+              tu pedido por WhatsApp.
+            </p>
+          </div>
 
           <div className="mt-8 flex flex-col gap-4 sm:flex-row">
             <a
@@ -1122,18 +1152,62 @@ window.location.href = urlWhatsApp;
               </div>
             )}
 
-          {!cargandoProductos && !errorProductos && productosFiltrados.length > 0 && totalPaginasProductos > 1 && (
-            <div className="mt-10">
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <button type="button" onClick={() => cambiarPaginaProductos(paginaActualProductos - 1)} disabled={paginaActualProductos === 1} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">← Anterior</button>
-                {Array.from({ length: totalPaginasProductos }, (_, index) => index + 1).map((numeroPagina) => (
-                  <button key={numeroPagina} type="button" onClick={() => cambiarPaginaProductos(numeroPagina)} className={`rounded-lg border px-4 py-2 font-semibold transition ${numeroPagina === paginaActualProductos ? "border-cyan-500 bg-cyan-500 text-black" : "border-white/10 bg-white/5 text-white hover:bg-white/10"}`}>{numeroPagina}</button>
-                ))}
-                <button type="button" onClick={() => cambiarPaginaProductos(paginaActualProductos + 1)} disabled={paginaActualProductos === totalPaginasProductos} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">Siguiente →</button>
+          {/* PAGINACIÓN DE PRODUCTOS - SIEMPRE VISIBLE */}
+          {!cargandoProductos &&
+            !errorProductos &&
+            productosFiltrados.length > 0 && (
+              <div className="mt-8 flex w-full justify-center">
+                <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-xl border border-cyan-400/30 bg-[#111827] p-3 shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      cambiarPaginaProductos(
+                        paginaActualProductos - 1
+                      )
+                    }
+                    disabled={paginaActualProductos === 1}
+                    className="rounded-lg bg-gray-600 px-4 py-3 font-bold text-white transition hover:bg-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    ← Anterior
+                  </button>
+
+                  {Array.from(
+                    { length: totalPaginasProductos },
+                    (_, index) => index + 1
+                  ).map((numeroPagina) => (
+                    <button
+                      key={numeroPagina}
+                      type="button"
+                      onClick={() =>
+                        cambiarPaginaProductos(numeroPagina)
+                      }
+                      className={`min-w-11 rounded-lg px-4 py-3 font-bold transition ${
+                        numeroPagina === paginaActualProductos
+                          ? "bg-cyan-500 text-black"
+                          : "bg-gray-600 text-white hover:bg-gray-500"
+                      }`}
+                    >
+                      {numeroPagina}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      cambiarPaginaProductos(
+                        paginaActualProductos + 1
+                      )
+                    }
+                    disabled={
+                      paginaActualProductos === totalPaginasProductos
+                    }
+                    className="rounded-lg bg-gray-600 px-4 py-3 font-bold text-white transition hover:bg-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Siguiente →
+                  </button>
+                </div>
               </div>
-              <p className="mt-4 text-center text-sm text-gray-500">Página {paginaActualProductos} de {totalPaginasProductos}</p>
-            </div>
-          )}
+            )}
         </div>
       </section>
 
@@ -1190,16 +1264,58 @@ window.location.href = urlWhatsApp;
             </div>
           )}
 
-          {productosOferta.length > 0 && totalPaginasOfertas > 1 && (
-            <div className="mt-8">
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <button type="button" onClick={() => cambiarPaginaOfertas(paginaActualOfertas - 1)} disabled={paginaActualOfertas === 1} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">← Anterior</button>
-                {Array.from({ length: totalPaginasOfertas }, (_, index) => index + 1).map((numeroPagina) => (
-                  <button key={numeroPagina} type="button" onClick={() => cambiarPaginaOfertas(numeroPagina)} className={`rounded-lg border px-4 py-2 font-semibold transition ${numeroPagina === paginaActualOfertas ? "border-purple-400 bg-purple-500 text-white" : "border-white/10 bg-white/5 text-white hover:bg-white/10"}`}>{numeroPagina}</button>
+          {/* PAGINACIÓN DE OFERTAS - SIEMPRE VISIBLE */}
+          {productosOferta.length > 0 && (
+            <div className="mt-8 flex w-full justify-center">
+              <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-xl border border-purple-400/30 bg-[#111827] p-3 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() =>
+                    cambiarPaginaOfertas(
+                      paginaActualOfertas - 1
+                    )
+                  }
+                  disabled={paginaActualOfertas === 1}
+                  className="rounded-lg bg-gray-600 px-4 py-3 font-bold text-white transition hover:bg-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ← Anterior
+                </button>
+
+                {Array.from(
+                  { length: totalPaginasOfertas },
+                  (_, index) => index + 1
+                ).map((numeroPagina) => (
+                  <button
+                    key={numeroPagina}
+                    type="button"
+                    onClick={() =>
+                      cambiarPaginaOfertas(numeroPagina)
+                    }
+                    className={`min-w-11 rounded-lg px-4 py-3 font-bold transition ${
+                      numeroPagina === paginaActualOfertas
+                        ? "bg-purple-500 text-white"
+                        : "bg-gray-600 text-white hover:bg-gray-500"
+                    }`}
+                  >
+                    {numeroPagina}
+                  </button>
                 ))}
-                <button type="button" onClick={() => cambiarPaginaOfertas(paginaActualOfertas + 1)} disabled={paginaActualOfertas === totalPaginasOfertas} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">Siguiente →</button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    cambiarPaginaOfertas(
+                      paginaActualOfertas + 1
+                    )
+                  }
+                  disabled={
+                    paginaActualOfertas === totalPaginasOfertas
+                  }
+                  className="rounded-lg bg-gray-600 px-4 py-3 font-bold text-white transition hover:bg-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente →
+                </button>
               </div>
-              <p className="mt-4 text-center text-sm text-gray-500">Página {paginaActualOfertas} de {totalPaginasOfertas}</p>
             </div>
           )}
         </div>
@@ -1486,8 +1602,11 @@ window.location.href = urlWhatsApp;
         </h2>
 
         <p className="mt-3 text-gray-400">
-          Tecnología en Jamundí, Valle
-          del Cauca
+          Tecnología en Jamundí, Valle del Cauca
+        </p>
+
+        <p className="mt-2 text-sm font-medium text-cyan-400">
+          🚚 Domicilios disponibles en todo Jamundí
         </p>
 
         <p className="mt-1 text-sm text-gray-500">
